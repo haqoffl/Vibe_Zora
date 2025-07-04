@@ -1,12 +1,15 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect,useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Video, VideoOff, Mic, MicOff, SkipForward, Flag, Zap, Sparkles, Clock, Coins, Eye, Users } from "lucide-react"
 import Link from "next/link"
-
+import {initiateChannel,joinChannelAsAudience, joinChannelAsInfluencer} from "@/library/webrtc"
+import Peer from "peerjs"
+import {io} from "socket.io-client"
+const socket = io("http://localhost:8000")
 export default function ConversationRoom() {
   const [earnings, setEarnings] = useState(0.048)
   const [timer, setTimer] = useState(60) // Start at 60 seconds
@@ -15,29 +18,112 @@ export default function ConversationRoom() {
   const [isAudioOn, setIsAudioOn] = useState(true)
   const [showLoading, setShowLoading] = useState(true)
   const [currentTopic] = useState("Technology & Innovation") // Topic they joined with
-
+  const initiatorPeerRef = useRef<Peer.Instance | null>(null);
+  const audiencePeerRef = useRef<Peer.Instance | null>(null);
+  let initiatorSignalData = useRef<string>("")
+  let audienceSignalData = useRef<string>("")
+  let [audiencePeer, setAudiencePeer] = useState<Peer.Instance | null>(null);
   useEffect(() => {
-    // Show loading for 2 seconds (reduced for better UX)
-    const loadingTimer = setTimeout(() => {
-      setShowLoading(false)
-    }, 2000)
+  // Connect and emit match request
+  socket.on("connect", () => {
+    console.log("Connected to socket:", socket.id);
+      setShowLoading(false);
 
-    const interval = setInterval(() => {
-      setTimer((prev) => {
-        if (prev <= 1) {
-          return 60 // Reset to 60 when it reaches 0
-        }
-        return prev - 1 // Count down
-      })
-      setEarnings((prev) => prev + 0.001)
-      setViewers((prev) => Math.max(100, prev + Math.floor(Math.random() * 5) - 2))
-    }, 1000)
+    socket.emit("connectWithRandom");
+  });
 
-    return () => {
-      clearTimeout(loadingTimer)
-      clearInterval(interval)
+
+
+
+  return () => {
+    // Cleanup socket connection on unmount
+    socket.off("connect");
+    socket.off("matched");
+    socket.off("noMatch");
+    socket.off("receiveIntiatorMessageSignal");
+    socket.off("receiveReceiverMessageSignal");
+  }
+  
+}, []);
+
+
+  // These listeners should NOT be inside 'connect'
+  socket.off("matched").on("matched", async(data) => {
+    console.log("Matched with random user", data);
+    if(socket.id != data.id) {
+    if(initiatorPeerRef.current == null) {
+    let res =  await joinAsInitiator()
+    initiatorPeerRef.current = res.peer
+    socket.emit("passIntiatorMessageSignal", {room:data.room,message:res.signalData});
     }
-  }, [])
+  }
+
+  });
+
+  socket.off("receiveIntiatorMessageSignal").on("receiveIntiatorMessageSignal", async(data) => {
+    if(socket.id != data.id) {
+
+    console.log("Received initiator signal data", data);
+    if(initiatorSignalData.current == "") {
+      initiatorSignalData.current = data.message;
+      let res =  await joinAsAudience(data.message)
+      socket.emit("passReceiverMessageSignal", {room:data.room,message:res.signalData});
+
+    }
+    }
+  });
+
+  socket.off("receiveReceiverMessageSignal").on("receiveReceiverMessageSignal", (data) => {
+    if(socket.id != data.id) {
+      console.log("Received receiver signal data", data);
+      if(audienceSignalData.current == ""){
+              audienceSignalData.current = data.message;
+
+          connectBoth(data.message,initiatorPeerRef.current as Peer.Instance);
+
+      }
+
+    }
+  });
+
+  socket.off("noMatch").on("noMatch", () => {
+    console.log("No match found, waiting...");
+  });
+
+
+    async function joinAsInitiator() {
+    console.log("function called")
+    let peer = await initiateChannel()
+    console.log("Influencer channel initiated", peer)
+    console.log("storing peer: ", peer.peer)
+    initiatorSignalData.current = peer.signalData
+    return peer
+
+  }
+
+
+  async function joinAsAudience(message: string) {
+    let rs = await joinChannelAsAudience(message)
+    console.log("Audience channel initiated", rs.peer)
+    console.log("Audience signal data", rs.signalData)
+    audiencePeerRef.current = rs.peer
+    audienceSignalData.current = rs.signalData
+    setAudiencePeer(rs.peer)
+
+    return rs
+
+  }
+
+  function connectBoth(message: string,peer:Peer.Instance) {
+    let parsedSignal = JSON.parse(message)
+    console.log("initiator peer", peer)
+    joinChannelAsInfluencer(message,peer)
+
+  }
+
+  audiencePeer?.on('data', (data) => {
+   console.log("Data received from audience:", data.toString())
+  })
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)

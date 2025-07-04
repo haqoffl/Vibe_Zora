@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Wallet, Users, DollarSign, Video, Sparkles, Zap, Play, Coins, Timer, Eye, TrendingUp, Clock, ChevronDown } from "lucide-react"
 import Link from "next/link"
-
+import { set } from "react-hook-form"
 const topics = [
   "🎮 Gaming", "💻 Tech", "🎨 Art", "🎵 Music", "📚 Books", 
   "🏃 Fitness", "🍕 Food", "✈️ Travel", "💼 Business", "🧠 Philosophy"
@@ -24,6 +24,8 @@ const scrollingStats = [
 export default function VibeLandingPage() {
   const [isConnected, setIsConnected] = useState(false)
   const [selectedTopic, setSelectedTopic] = useState("any")
+  
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 relative overflow-hidden">
@@ -93,17 +95,23 @@ export default function VibeLandingPage() {
           </SelectContent>
         </Select>
       </Card>
-
+            
       {/* Action Buttons */}
       <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 md:gap-6 justify-center items-center w-full">
-        <Link href="/conversation" className="w-full sm:w-auto">
+       
+
+     
+        
+                <Link href={"/conversation"} className="w-full sm:w-auto">
           <Button
             size="lg"
             className="btn-glow bg-[#0057FF] hover:bg-[#0041CC] text-white px-6 sm:px-8 md:px-10 lg:px-12 py-4 sm:py-5 md:py-6 text-base sm:text-lg md:text-xl font-bold rounded-xl sm:rounded-2xl transition-all duration-300 disabled:opacity-50 font-mono relative overflow-hidden group flex items-center justify-center w-full sm:w-auto min-h-[48px] sm:min-h-[56px] md:min-h-[64px]"
-            disabled={!isConnected}
+            disabled={false}
+
+           
           >
             <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 mr-2 sm:mr-3" />
-            <span className="truncate">connect_now</span>
+            <span className="truncate">connect_as_audience</span>
           </Button>
         </Link>
 
